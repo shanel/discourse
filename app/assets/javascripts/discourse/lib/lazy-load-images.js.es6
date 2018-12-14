@@ -2,14 +2,18 @@ const OBSERVER_OPTIONS = {
   rootMargin: "50%" // load images slightly before they're visible
 };
 
+const LOADING_DATA =
+  "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
+
 // We hide an image by replacing it with a transparent gif
 function hide(image) {
   image.classList.add("d-lazyload");
   image.classList.add("d-lazyload-hidden");
   image.setAttribute("data-src", image.getAttribute("src"));
+
   image.setAttribute(
     "src",
-    "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
+    image.getAttribute("data-small-upload") || LOADING_DATA
   );
 }
 
@@ -18,6 +22,7 @@ function show(image) {
   let dataSrc = image.getAttribute("data-src");
   if (dataSrc) {
     image.setAttribute("src", dataSrc);
+    image.removeAttribute("data-small-upload");
     image.classList.remove("d-lazyload-hidden");
   }
 }

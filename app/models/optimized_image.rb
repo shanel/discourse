@@ -68,7 +68,7 @@ class OptimizedImage < ActiveRecord::Base
         Rails.logger.error("Could not find file in the store located at url: #{upload.url}")
       else
         # create a temp file with the same extension as the original
-        extension = ".#{upload.extension}"
+        extension = ".#{opts[:format] || upload.extension}"
 
         if extension.length == 1
           return nil
@@ -87,7 +87,7 @@ class OptimizedImage < ActiveRecord::Base
         end
 
         if resized
-          thumbnail = OptimizedImage.create!(
+          thumbnail = OptimizedImage.new(
             upload_id: upload.id,
             sha1: Upload.generate_digest(temp_path),
             extension: extension,
@@ -96,6 +96,8 @@ class OptimizedImage < ActiveRecord::Base
             url: "",
             filesize: File.size(temp_path)
           )
+
+          thumbnail.save!
           # store the optimized image and update its url
           File.open(temp_path) do |file|
             url = Discourse.store.store_optimized_image(file, thumbnail)
@@ -173,7 +175,7 @@ class OptimizedImage < ActiveRecord::Base
   IM_DECODERS ||= /\A(jpe?g|png|tiff?|bmp|ico|gif)\z/i
 
   def self.prepend_decoder!(path, ext_path = nil, opts = nil)
-    extension = File.extname((opts && opts[:filename]) || ext_path || path)[1..-1]
+    extension = File.extname((opts && opts[:filename]) || path || ext_path)[1..-1]
     raise Discourse::InvalidAccess if !extension || !extension.match?(IM_DECODERS)
     "#{extension}:#{path}"
   end
@@ -189,10 +191,14 @@ class OptimizedImage < ActiveRecord::Base
     from = prepend_decoder!(from, to, opts)
     to = prepend_decoder!(to, to, opts)
 
+    instructions = ['convert', "#{from}[0]"]
+
+    if opts[:colors]
+      instructions << "-colors" << opts[:colors].to_s
+    end
+
     # NOTE: ORDER is important!
-    %W{
-      convert
-      #{from}[0]
+    instructions + %W{
       -auto-orient
       -gravity center
       -background transparent
@@ -212,7 +218,7 @@ class OptimizedImage < ActiveRecord::Base
 
     %W{
       gifsicle
-      --colors=256
+      --colors=#{opts[:colors] || 256}
       --resize-fit #{dimensions}
       --optimize=3
       --output #{to}
@@ -248,7 +254,7 @@ class OptimizedImage < ActiveRecord::Base
     %W{
       gifsicle
       --crop 0,0+#{dimensions}
-      --colors=256
+      --colors=#{opts[:colors] || 256}
       --optimize=3
       --output #{to}
       #{from}
