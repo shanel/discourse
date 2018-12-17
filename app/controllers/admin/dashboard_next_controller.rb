@@ -11,6 +11,26 @@ class Admin::DashboardNextController < Admin::AdminController
 
   def moderation; end
   def security; end
+  def reports
+    reports_methods = ['page_view_total_reqs'] +
+      ApplicationRequest.req_types.keys
+        .select { |r| r =~ /^page_view_/ && r !~ /mobile/ }
+        .map { |r| r + "_reqs" } +
+      Report.singleton_methods.grep(/^report_(?!about)/)
+
+    reports = reports_methods.map do |name|
+      type = name.to_s.gsub('report_', '')
+      description = I18n.t("reports.#{type}.description", default: '')
+
+      {
+        type: type,
+        title: I18n.t("reports.#{type}.title"),
+        description: description.presence ? description : nil,
+      }
+    end
+
+    render_json_dump(reports: reports.sort_by { |report| report[:title] })
+  end
 
   def general
     render json: AdminDashboardNextGeneralData.fetch_cached_stats
